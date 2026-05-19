@@ -1,6 +1,10 @@
 # Sync WordPress to X
 
-A small WordPress plugin that publishes newly published WordPress posts to X.
+A small WordPress plugin that publishes newly published WordPress posts to X with an AI-generated summary.
+
+中文简介：将新发布的 WordPress 文章通过 AI 摘要同步发布到 X。
+
+Author: [happy xiao](https://aa.ee) | [访问插件主页](https://github.com/happyokay/sync-wordpress-to-x)
 
 The X post format is:
 
@@ -18,6 +22,7 @@ Post permalink
 - Publishes the text through the X API.
 - Saves the X post id and last error in post meta so duplicate publishes are avoided.
 - Provides Chinese and English settings page copy, including beginner-friendly X API credential instructions.
+- Supports manual publishing from the WordPress post editor when auto-posting is disabled or you want to test one post.
 
 ## Requirements
 
@@ -42,6 +47,8 @@ The plugin uses:
 5. Add your X API key, X API key secret, X access token, X access token secret, and DeepSeek API key.
 6. Enable auto-posting.
 
+If you leave auto-posting disabled, open a published post in the WordPress editor and use the **Sync WordPress to X** sidebar box to publish that post manually.
+
 ### Manual install
 
 1. Copy this folder to `wp-content/plugins/sync-wordpress-to-x`.
@@ -60,6 +67,8 @@ This plugin signs X requests with OAuth 1.0a user context. In your X developer p
 - Access token secret
 
 The X app must have write/post permissions.
+
+If posting fails, open the WordPress post editor and check the **Sync WordPress to X** sidebar box. It shows the last error returned by DeepSeek or X. Common causes are missing auto-posting, a post that was already published before auto-posting was enabled, X app permissions that are not set to read and write, access tokens generated before the permission change, mixed credentials from different X apps, or a DeepSeek key/model/billing issue.
 
 ## DeepSeek notes
 

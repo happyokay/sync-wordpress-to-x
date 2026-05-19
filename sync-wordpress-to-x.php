@@ -1,9 +1,11 @@
 <?php
 /**
  * Plugin Name: Sync WordPress to X
- * Description: Publishes newly published WordPress posts to X with a DeepSeek-generated summary.
- * Version: 0.1.1
- * Author: Open Source Contributors
+ * Plugin URI: https://github.com/happyokay/sync-wordpress-to-x
+ * Description: Publishes newly published WordPress posts to X with an AI-generated summary. 将新发布的 WordPress 文章通过 AI 摘要同步发布到 X。
+ * Version: 0.1.2
+ * Author: happy xiao
+ * Author URI: https://aa.ee
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: sync-wordpress-to-x
@@ -23,13 +25,28 @@ final class SWTX_Sync_WordPress_To_X {
     public static function init(): void {
         add_action('admin_menu', [__CLASS__, 'add_settings_page']);
         add_action('admin_init', [__CLASS__, 'register_settings']);
+        add_action('add_meta_boxes', [__CLASS__, 'add_manual_publish_meta_box']);
+        add_action('admin_post_swtx_manual_publish', [__CLASS__, 'handle_manual_publish']);
+        add_action('admin_notices', [__CLASS__, 'render_admin_notice']);
         add_action('transition_post_status', [__CLASS__, 'maybe_publish_to_x'], 10, 3);
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), [__CLASS__, 'add_action_links']);
+        add_filter('plugin_row_meta', [__CLASS__, 'add_plugin_row_meta'], 10, 2);
     }
 
     public static function add_action_links(array $links): array {
         $settings_url = admin_url('options-general.php?page=sync-wordpress-to-x');
         array_unshift($links, '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'sync-wordpress-to-x') . '</a>');
+        return $links;
+    }
+
+    public static function add_plugin_row_meta(array $links, string $file): array {
+        if ($file !== plugin_basename(__FILE__)) {
+            return $links;
+        }
+
+        $links[] = '<a href="https://aa.ee" target="_blank" rel="noopener noreferrer">happy xiao</a>';
+        $links[] = '<a href="https://github.com/happyokay/sync-wordpress-to-x" target="_blank" rel="noopener noreferrer">访问插件主页</a>';
+
         return $links;
     }
 
@@ -56,7 +73,7 @@ final class SWTX_Sync_WordPress_To_X {
 
         return [
             'enabled' => empty($input['enabled']) ? '0' : '1',
-            'language' => in_array(($input['language'] ?? 'zh_CN'), ['zh_CN', 'en_US'], true) ? $input['language'] : 'zh_CN',
+            'language' => in_array(($input['language'] ?? 'en_US'), ['zh_CN', 'en_US'], true) ? $input['language'] : 'en_US',
             'post_type' => sanitize_key($input['post_type'] ?? 'post'),
             'x_api_key' => sanitize_text_field($input['x_api_key'] ?? ''),
             'x_api_secret' => self::preserve_secret($input, $current, 'x_api_secret'),
@@ -103,6 +120,19 @@ final class SWTX_Sync_WordPress_To_X {
                                 <input type="checkbox" name="<?php echo esc_attr(self::OPTION_NAME); ?>[enabled]" value="1" <?php checked($settings['enabled'], '1'); ?>>
                                 <?php echo esc_html($copy['enabled_help']); ?>
                             </label>
+                            <p class="description"><?php echo esc_html($copy['manual_publish_help']); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><?php echo esc_html($copy['manual_publish_label']); ?></th>
+                        <td>
+                            <p><?php echo esc_html($copy['manual_publish_intro']); ?></p>
+                            <ol>
+                                <?php foreach ($copy['manual_publish_steps'] as $step) : ?>
+                                    <li><?php echo esc_html($step); ?></li>
+                                <?php endforeach; ?>
+                            </ol>
                         </td>
                     </tr>
 
@@ -198,12 +228,112 @@ final class SWTX_Sync_WordPress_To_X {
                             <p class="description"><?php echo esc_html($copy['deepseek_model_help']); ?></p>
                         </td>
                     </tr>
+
+                    <tr>
+                        <th scope="row"><?php echo esc_html($copy['troubleshooting_label']); ?></th>
+                        <td>
+                            <ol>
+                                <?php foreach ($copy['troubleshooting_steps'] as $step) : ?>
+                                    <li><?php echo esc_html($step); ?></li>
+                                <?php endforeach; ?>
+                            </ol>
+                        </td>
+                    </tr>
                 </table>
 
                 <?php submit_button(); ?>
             </form>
         </div>
         <?php
+    }
+
+    public static function add_manual_publish_meta_box(): void {
+        $settings = self::get_settings();
+        add_meta_box(
+            'swtx_manual_publish',
+            __('Sync WordPress to X', 'sync-wordpress-to-x'),
+            [__CLASS__, 'render_manual_publish_meta_box'],
+            $settings['post_type'],
+            'side',
+            'default'
+        );
+    }
+
+    public static function render_manual_publish_meta_box(WP_Post $post): void {
+        $settings = self::get_settings();
+        $language = self::settings_language($settings);
+        $copy = self::settings_copy($language);
+        $x_post_id = get_post_meta($post->ID, self::POST_META_X_ID, true);
+        $last_error = get_post_meta($post->ID, self::POST_META_ERROR, true);
+        $summary = get_post_meta($post->ID, self::POST_META_SUMMARY, true);
+        $manual_url = wp_nonce_url(
+            admin_url('admin-post.php?action=swtx_manual_publish&post_id=' . (int) $post->ID),
+            'swtx_manual_publish_' . (int) $post->ID
+        );
+
+        echo '<p>' . esc_html($copy['manual_box_intro']) . '</p>';
+
+        if ($post->post_status !== 'publish') {
+            echo '<p class="description">' . esc_html($copy['manual_box_publish_first']) . '</p>';
+            return;
+        }
+
+        if ($x_post_id) {
+            echo '<p><strong>' . esc_html($copy['manual_box_x_id']) . '</strong> ' . esc_html($x_post_id) . '</p>';
+        }
+
+        if ($summary) {
+            echo '<p><strong>' . esc_html($copy['manual_box_summary']) . '</strong> ' . esc_html($summary) . '</p>';
+        }
+
+        if ($last_error) {
+            echo '<p><strong>' . esc_html($copy['manual_box_last_error']) . '</strong><br>' . esc_html($last_error) . '</p>';
+        }
+
+        if ($x_post_id) {
+            echo '<p class="description">' . esc_html($copy['manual_box_already_sent']) . '</p>';
+            return;
+        }
+
+        echo '<p><a class="button button-primary" href="' . esc_url($manual_url) . '">' . esc_html($copy['manual_box_button']) . '</a></p>';
+    }
+
+    public static function handle_manual_publish(): void {
+        $post_id = absint($_GET['post_id'] ?? 0);
+        if (!$post_id || !current_user_can('edit_post', $post_id)) {
+            wp_die(esc_html__('You do not have permission to publish this post to X.', 'sync-wordpress-to-x'));
+        }
+
+        check_admin_referer('swtx_manual_publish_' . $post_id);
+
+        $post = get_post($post_id);
+        if (!$post instanceof WP_Post) {
+            wp_die(esc_html__('Post not found.', 'sync-wordpress-to-x'));
+        }
+
+        $result = self::publish_post_to_x($post);
+        $redirect_url = get_edit_post_link($post_id, 'raw');
+        if (!$redirect_url) {
+            $redirect_url = admin_url('post.php?post=' . $post_id . '&action=edit');
+        }
+
+        $notice = is_wp_error($result) ? 'swtx_manual_error' : 'swtx_manual_success';
+        wp_safe_redirect(add_query_arg($notice, '1', $redirect_url));
+        exit;
+    }
+
+    public static function render_admin_notice(): void {
+        if (!isset($_GET['swtx_manual_success']) && !isset($_GET['swtx_manual_error'])) {
+            return;
+        }
+
+        $settings = self::get_settings();
+        $copy = self::settings_copy(self::settings_language($settings));
+        $is_success = isset($_GET['swtx_manual_success']);
+        $class = $is_success ? 'notice notice-success is-dismissible' : 'notice notice-error is-dismissible';
+        $message = $is_success ? $copy['manual_notice_success'] : $copy['manual_notice_error'];
+
+        echo '<div class="' . esc_attr($class) . '"><p>' . esc_html($message) . '</p></div>';
     }
 
     public static function maybe_publish_to_x(string $new_status, string $old_status, WP_Post $post): void {
@@ -216,32 +346,57 @@ final class SWTX_Sync_WordPress_To_X {
             return;
         }
 
-        if (wp_is_post_revision($post->ID) || wp_is_post_autosave($post->ID) || get_post_meta($post->ID, self::POST_META_X_ID, true)) {
-            return;
+        self::publish_post_to_x($post);
+    }
+
+    private static function publish_post_to_x(WP_Post $post) {
+        $settings = self::get_settings();
+
+        if ($post->post_status !== 'publish') {
+            $error = new WP_Error('swtx_post_not_published', __('Only published posts can be sent to X.', 'sync-wordpress-to-x'));
+            update_post_meta($post->ID, self::POST_META_ERROR, $error->get_error_message());
+            return $error;
+        }
+
+        if ($post->post_type !== $settings['post_type']) {
+            $error = new WP_Error('swtx_wrong_post_type', __('This post type is not selected in the plugin settings.', 'sync-wordpress-to-x'));
+            update_post_meta($post->ID, self::POST_META_ERROR, $error->get_error_message());
+            return $error;
+        }
+
+        if (wp_is_post_revision($post->ID) || wp_is_post_autosave($post->ID)) {
+            return new WP_Error('swtx_revision_or_autosave', __('Revisions and autosaves cannot be sent to X.', 'sync-wordpress-to-x'));
+        }
+
+        if (get_post_meta($post->ID, self::POST_META_X_ID, true)) {
+            return new WP_Error('swtx_already_sent', __('This post has already been sent to X.', 'sync-wordpress-to-x'));
         }
 
         $missing = self::missing_required_settings($settings);
         if ($missing) {
-            update_post_meta($post->ID, self::POST_META_ERROR, 'Missing settings: ' . implode(', ', $missing));
-            return;
+            $error = new WP_Error('swtx_missing_settings', 'Missing settings: ' . implode(', ', $missing));
+            update_post_meta($post->ID, self::POST_META_ERROR, $error->get_error_message());
+            return $error;
         }
 
         $summary = self::generate_summary($post, $settings);
         if (is_wp_error($summary)) {
             update_post_meta($post->ID, self::POST_META_ERROR, $summary->get_error_message());
-            return;
+            return $summary;
         }
 
         $text = self::build_x_text($post, $summary);
         $result = self::create_x_post($text, $settings);
         if (is_wp_error($result)) {
             update_post_meta($post->ID, self::POST_META_ERROR, $result->get_error_message());
-            return;
+            return $result;
         }
 
         update_post_meta($post->ID, self::POST_META_X_ID, $result['id']);
         update_post_meta($post->ID, self::POST_META_SUMMARY, $summary);
         delete_post_meta($post->ID, self::POST_META_ERROR);
+
+        return $result;
     }
 
     private static function generate_summary(WP_Post $post, array $settings) {
@@ -398,7 +553,7 @@ final class SWTX_Sync_WordPress_To_X {
     }
 
     private static function settings_language(array $settings): string {
-        return in_array(($settings['language'] ?? 'zh_CN'), ['zh_CN', 'en_US'], true) ? $settings['language'] : 'zh_CN';
+        return in_array(($settings['language'] ?? 'en_US'), ['zh_CN', 'en_US'], true) ? $settings['language'] : 'en_US';
     }
 
     private static function settings_copy(string $language): array {
@@ -410,6 +565,14 @@ final class SWTX_Sync_WordPress_To_X {
                 'language_help' => 'This only changes the plugin settings page.',
                 'enabled_label' => 'Enable auto-posting',
                 'enabled_help' => 'Publish new WordPress posts to X automatically',
+                'manual_publish_help' => 'If this is unchecked, nothing is posted automatically. You can still publish selected posts manually.',
+                'manual_publish_label' => 'Manual publishing',
+                'manual_publish_intro' => 'Use this when you want to review a post first or test one post at a time.',
+                'manual_publish_steps' => [
+                    'Open an already published post in the WordPress editor.',
+                    'Find the Sync WordPress to X box in the right sidebar.',
+                    'Click Publish to X now. The box will show the X post id after success, or the last error after failure.',
+                ],
                 'post_type_label' => 'Post type',
                 'x_start_label' => 'Get started with X Developer',
                 'x_start_intro' => 'Open the X Developer Portal here:',
@@ -447,6 +610,25 @@ final class SWTX_Sync_WordPress_To_X {
                 'deepseek_help' => 'Create or copy your DeepSeek API key here:',
                 'deepseek_model_label' => 'DeepSeek Model',
                 'deepseek_model_help' => 'Default: deepseek-v4-flash.',
+                'troubleshooting_label' => 'Troubleshooting failed posts',
+                'troubleshooting_steps' => [
+                    'Open the test post in the editor and check the Sync WordPress to X box for the last error.',
+                    'If there is no error, confirm auto-posting was enabled before the post first changed from draft to published. Updating an already published post does not trigger auto-posting.',
+                    'If X returns a permission error, set your X app permission to Read and write, then regenerate Access Token and Access Token Secret.',
+                    'Confirm the four X fields are from the same app and the same posting account.',
+                    'Confirm your X developer tier allows creating posts through POST /2/tweets.',
+                    'If the error mentions DeepSeek, check the DeepSeek API key, account balance, and model name.',
+                    'Try the manual Publish to X now button on the post editor to reproduce the error immediately.',
+                ],
+                'manual_box_intro' => 'Send this published post to X without waiting for auto-posting.',
+                'manual_box_publish_first' => 'Publish this WordPress post first, then the manual X button will appear here.',
+                'manual_box_x_id' => 'X post id:',
+                'manual_box_summary' => 'Summary:',
+                'manual_box_last_error' => 'Last error:',
+                'manual_box_already_sent' => 'This post has already been sent to X, so the manual button is hidden to avoid duplicates.',
+                'manual_box_button' => 'Publish to X now',
+                'manual_notice_success' => 'The post was published to X.',
+                'manual_notice_error' => 'The post was not published to X. Check the Sync WordPress to X box for the last error.',
             ];
         }
 
@@ -457,6 +639,14 @@ final class SWTX_Sync_WordPress_To_X {
             'language_help' => '这里只影响插件设置页的显示语言。',
             'enabled_label' => '启用自动发布',
             'enabled_help' => '新 WordPress 文章发布后，自动发布到 X',
+            'manual_publish_help' => '如果不勾选，插件不会自动发布；但你仍然可以在单篇文章里手动发布。',
+            'manual_publish_label' => '手动发布方法',
+            'manual_publish_intro' => '适合先检查文章内容，或一次只测试一篇文章。',
+            'manual_publish_steps' => [
+                '在 WordPress 后台打开一篇已经发布的文章。',
+                '在文章编辑页右侧找到 Sync WordPress to X 面板。',
+                '点击 Publish to X now。成功后会显示 X post id；失败后会显示上一次错误。',
+            ],
             'post_type_label' => '文章类型',
             'x_start_label' => '开始配置 X 开发者账号',
             'x_start_intro' => '先打开 X 开发者后台：',
@@ -494,6 +684,25 @@ final class SWTX_Sync_WordPress_To_X {
             'deepseek_help' => '在这里创建或复制你的 DeepSeek API Key：',
             'deepseek_model_label' => 'DeepSeek 模型',
             'deepseek_model_help' => '默认值：deepseek-v4-flash。',
+            'troubleshooting_label' => '发布失败排查',
+            'troubleshooting_steps' => [
+                '打开测试文章编辑页，查看右侧 Sync WordPress to X 面板里的 Last error / 上一次错误。',
+                '如果没有错误记录，确认你是在文章第一次从草稿变成已发布之前就启用了自动发布；更新已经发布的文章不会触发自动发布。',
+                '如果 X 返回权限错误，把 X App 权限改成 Read and write，然后重新生成 Access Token 和 Access Token Secret。',
+                '确认四个 X 字段都来自同一个 App，并且 Access Token 属于你要发帖的 X 账号。',
+                '确认你的 X 开发者账户层级允许调用 POST /2/tweets 创建帖子。',
+                '如果错误提到 DeepSeek，请检查 DeepSeek API Key、账户余额和模型名称。',
+                '可以在文章编辑页点击 Publish to X now 手动重试，这样能立即复现并看到错误。',
+            ],
+            'manual_box_intro' => '无需等待自动发布，直接把这篇已发布文章发送到 X。',
+            'manual_box_publish_first' => '请先发布这篇 WordPress 文章，然后这里会出现手动发布按钮。',
+            'manual_box_x_id' => 'X post id：',
+            'manual_box_summary' => '摘要：',
+            'manual_box_last_error' => '上一次错误：',
+            'manual_box_already_sent' => '这篇文章已经发送到 X，为避免重复发布，手动按钮已隐藏。',
+            'manual_box_button' => 'Publish to X now',
+            'manual_notice_success' => '文章已发布到 X。',
+            'manual_notice_error' => '文章没有成功发布到 X。请查看文章右侧 Sync WordPress to X 面板里的上一次错误。',
         ];
     }
 
@@ -533,7 +742,7 @@ final class SWTX_Sync_WordPress_To_X {
     private static function default_settings(): array {
         return [
             'enabled' => '0',
-            'language' => 'zh_CN',
+            'language' => 'en_US',
             'post_type' => 'post',
             'x_api_key' => '',
             'x_api_secret' => '',

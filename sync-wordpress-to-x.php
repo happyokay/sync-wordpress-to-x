@@ -3,7 +3,7 @@
  * Plugin Name: Sync WordPress to X
  * Plugin URI: https://github.com/happyokay/sync-wordpress-to-x
  * Description: Prepares or publishes newly published WordPress posts to X with an AI-generated summary. 将新发布的 WordPress 文章通过 AI 摘要准备或同步发布到 X。
- * Version: 0.1.5
+ * Version: 0.1.6
  * Author: happy xiao
  * Author URI: https://aa.ee
  * License: GPL-2.0-or-later
@@ -34,23 +34,11 @@ final class SWTX_Sync_WordPress_To_X {
         add_action('admin_notices', [__CLASS__, 'render_admin_notice']);
         add_action('transition_post_status', [__CLASS__, 'maybe_publish_to_x'], 10, 3);
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), [__CLASS__, 'add_action_links']);
-        add_filter('plugin_row_meta', [__CLASS__, 'add_plugin_row_meta'], 10, 2);
     }
 
     public static function add_action_links(array $links): array {
         $settings_url = admin_url('options-general.php?page=sync-wordpress-to-x');
         array_unshift($links, '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'sync-wordpress-to-x') . '</a>');
-        return $links;
-    }
-
-    public static function add_plugin_row_meta(array $links, string $file): array {
-        if ($file !== plugin_basename(__FILE__)) {
-            return $links;
-        }
-
-        $links[] = '<a href="https://aa.ee" target="_blank" rel="noopener noreferrer">happy xiao</a>';
-        $links[] = '<a href="https://github.com/happyokay/sync-wordpress-to-x" target="_blank" rel="noopener noreferrer">访问插件主页</a>';
-
         return $links;
     }
 
@@ -663,7 +651,7 @@ final class SWTX_Sync_WordPress_To_X {
         }
 
         $summary = self::truncate($summary, max(0, $available_summary_length));
-        return $title . "\n" . $summary . "\n" . $url;
+        return implode("\r\n", [$title, $summary, $url]);
     }
 
     private static function missing_required_settings(array $settings, bool $include_x): array {

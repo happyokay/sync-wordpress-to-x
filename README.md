@@ -1,8 +1,8 @@
 # Sync WordPress to X
 
-A small WordPress plugin that publishes newly published WordPress posts to X with an AI-generated summary.
+A small WordPress plugin that prepares or publishes newly published WordPress posts to X with an AI-generated summary.
 
-中文简介：将新发布的 WordPress 文章通过 AI 摘要同步发布到 X。
+中文简介：将新发布的 WordPress 文章通过 AI 摘要准备或同步发布到 X。
 
 Author: [happy xiao](https://aa.ee) | [访问插件主页](https://github.com/happyokay/sync-wordpress-to-x)
 
@@ -19,7 +19,8 @@ Post permalink
 - Watches for newly published WordPress posts.
 - Sends the article title and body to DeepSeek for a short summary.
 - Trims the final text to one X post.
-- Publishes the text through the X API.
+- Free semi-auto mode: saves the X text in the post editor, with copy and open-X-compose buttons.
+- X API mode: publishes the text through the X API when the project has paid API access.
 - Saves the X post id and last error in post meta so duplicate publishes are avoided.
 - Provides Chinese and English settings page copy, including beginner-friendly X API credential instructions.
 - Supports manual publishing from the WordPress post editor when auto-posting is disabled or you want to test one post.
@@ -28,13 +29,13 @@ Post permalink
 
 - WordPress 6.0 or newer.
 - PHP 7.4 or newer.
-- An X developer app with user-context posting access.
 - A DeepSeek API key.
+- Optional: an X developer app with user-context posting access, only for X API mode.
 
 The plugin uses:
 
-- X API `POST https://api.x.com/2/tweets`
 - DeepSeek `POST https://api.deepseek.com/chat/completions`
+- Optional X API mode: `POST https://api.x.com/2/tweets`
 
 ## Installation
 
@@ -44,22 +45,25 @@ The plugin uses:
 2. In WordPress, open **Plugins > Add New Plugin > Upload Plugin**.
 3. Upload the zip file and activate **Sync WordPress to X**.
 4. Open **Settings > Sync WordPress to X**.
-5. Add your X API key, X API key secret, X access token, X access token secret, and DeepSeek API key.
-6. Enable auto-posting.
+5. Add your DeepSeek API key.
+6. Keep the default free semi-auto mode, or choose X API mode and add your X credentials.
+7. Enable automatic processing if you want new posts to generate X text automatically.
 
-If you leave auto-posting disabled, open a published post in the WordPress editor and use the **Sync WordPress to X** sidebar box to publish that post manually.
+In free semi-auto mode, open a published post in the WordPress editor and use the **Sync WordPress to X** sidebar box to generate text, copy it, or open X compose.
 
 ### Manual install
 
 1. Copy this folder to `wp-content/plugins/sync-wordpress-to-x`.
 2. Activate **Sync WordPress to X** in WordPress.
 3. Open **Settings > Sync WordPress to X**.
-4. Add your X API key, X API key secret, X access token, X access token secret, and DeepSeek API key.
-5. Enable auto-posting.
+4. Add your DeepSeek API key.
+5. Keep the default free semi-auto mode, or choose X API mode and add your X credentials.
 
 ## X API notes
 
-This plugin signs X requests with OAuth 1.0a user context. In your X developer portal, generate:
+X credentials are only required for X API mode. The default free semi-auto mode does not call the X API.
+
+In X API mode, this plugin signs X requests with OAuth 1.0a user context. In your X developer portal, generate:
 
 - API key
 - API key secret
@@ -80,7 +84,7 @@ Summary requests explicitly disable DeepSeek thinking mode because the plugin on
 
 ## Privacy
 
-When auto-posting is enabled, the plugin sends article title and article body text to DeepSeek to generate a summary. The final title, summary, and permalink are sent to X.
+When automatic processing is enabled, the plugin sends article title and article body text to DeepSeek to generate a summary. In free semi-auto mode, the final title, summary, and permalink are saved in WordPress for manual posting. In X API mode, they are sent to X.
 
 ## License
 

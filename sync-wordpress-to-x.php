@@ -3,7 +3,7 @@
  * Plugin Name: Sync WordPress to X
  * Plugin URI: https://github.com/happyokay/sync-wordpress-to-x
  * Description: Publishes newly published WordPress posts to X with an AI-generated summary. 将新发布的 WordPress 文章通过 AI 摘要同步发布到 X。
- * Version: 0.1.2
+ * Version: 0.1.3
  * Author: happy xiao
  * Author URI: https://aa.ee
  * License: GPL-2.0-or-later
@@ -422,8 +422,11 @@ final class SWTX_Sync_WordPress_To_X {
                     ['role' => 'system', 'content' => 'You write concise social summaries.'],
                     ['role' => 'user', 'content' => $prompt],
                 ],
+                'thinking' => [
+                    'type' => 'disabled',
+                ],
                 'stream' => false,
-                'max_tokens' => 120,
+                'max_tokens' => 180,
                 'temperature' => 0.3,
             ]),
         ]);
@@ -438,12 +441,70 @@ final class SWTX_Sync_WordPress_To_X {
             return new WP_Error('swtx_deepseek_error', self::api_error_message('DeepSeek', $code, $body));
         }
 
-        $summary = trim((string) ($body['choices'][0]['message']['content'] ?? ''));
+        $summary = self::extract_deepseek_content($body);
         if ($summary === '') {
-            return new WP_Error('swtx_empty_summary', __('DeepSeek returned an empty summary.', 'sync-wordpress-to-x'));
+            return new WP_Error('swtx_empty_summary', self::empty_deepseek_summary_message($body));
         }
 
         return self::sanitize_line($summary);
+    }
+
+    private static function extract_deepseek_content($body): string {
+        if (!is_array($body)) {
+            return '';
+        }
+
+        $message = $body['choices'][0]['message'] ?? [];
+        if (!is_array($message)) {
+            return '';
+        }
+
+        $content = $message['content'] ?? '';
+        if (is_string($content)) {
+            return trim($content);
+        }
+
+        if (is_array($content)) {
+            $parts = [];
+            foreach ($content as $part) {
+                if (is_string($part)) {
+                    $parts[] = $part;
+                    continue;
+                }
+
+                if (is_array($part) && isset($part['text']) && is_string($part['text'])) {
+                    $parts[] = $part['text'];
+                }
+            }
+
+            return trim(implode(' ', $parts));
+        }
+
+        return '';
+    }
+
+    private static function empty_deepseek_summary_message($body): string {
+        if (!is_array($body)) {
+            return 'DeepSeek returned an empty summary. The response body was not valid JSON.';
+        }
+
+        $finish_reason = $body['choices'][0]['finish_reason'] ?? 'unknown';
+        $message = $body['choices'][0]['message'] ?? [];
+        $reasoning = is_array($message) ? trim((string) ($message['reasoning_content'] ?? '')) : '';
+        $encoded_body = wp_json_encode($body);
+        $debug_body = is_string($encoded_body) ? self::truncate($encoded_body, 900) : '';
+
+        $encoded_finish_reason = wp_json_encode($finish_reason);
+        $message_text = 'DeepSeek returned an empty summary. finish_reason=' . (is_string($finish_reason) ? $finish_reason : (is_string($encoded_finish_reason) ? $encoded_finish_reason : 'unknown'));
+        if ($reasoning !== '') {
+            $message_text .= '; reasoning_content=' . self::truncate($reasoning, 240);
+        }
+
+        if ($debug_body !== '') {
+            $message_text .= '; response=' . $debug_body;
+        }
+
+        return $message_text;
     }
 
     private static function create_x_post(string $text, array $settings) {

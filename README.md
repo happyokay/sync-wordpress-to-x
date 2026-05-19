@@ -74,6 +74,8 @@ If posting fails, open the WordPress post editor and check the **Sync WordPress 
 
 The default model is `deepseek-v4-flash`, matching DeepSeek's current quick-start documentation. You can change the model on the settings page.
 
+Summary requests explicitly disable DeepSeek thinking mode because the plugin only needs a short public summary. If DeepSeek returns an empty summary, the plugin stores the response `finish_reason` and a short response excerpt in the post editor sidebar so the exact cause is easier to diagnose.
+
 ## Privacy
 
 When auto-posting is enabled, the plugin sends article title and article body text to DeepSeek to generate a summary. The final title, summary, and permalink are sent to X.

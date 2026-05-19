@@ -3,7 +3,7 @@
  * Plugin Name: Sync WordPress to X
  * Plugin URI: https://github.com/happyokay/sync-wordpress-to-x
  * Description: Publishes newly published WordPress posts to X with an AI-generated summary. 将新发布的 WordPress 文章通过 AI 摘要同步发布到 X。
- * Version: 0.1.3
+ * Version: 0.1.4
  * Author: happy xiao
  * Author URI: https://aa.ee
  * License: GPL-2.0-or-later
@@ -640,7 +640,7 @@ final class SWTX_Sync_WordPress_To_X {
                 'x_developer_link' => 'X Developer Portal',
                 'x_start_steps' => [
                     'Sign in with the X account that will publish posts.',
-                    'Apply for or activate developer access. Choose the free tier if it is available for your account and usage.',
+                    'Activate X API access for the project. X now shows the old Free plan as deprecated; use Pay Per Use or a paid tier that includes the POST /2/tweets endpoint.',
                     'Create a project and app. Give it a simple name, such as your blog name.',
                     'In the app settings, enable read and write permissions so the app is allowed to create posts.',
                 ],
@@ -678,7 +678,7 @@ final class SWTX_Sync_WordPress_To_X {
                     'If X returns a permission error, set your X app permission to Read and write, then regenerate Access Token and Access Token Secret.',
                     'If X says the developer App must be attached to a Project, create or open a Project in the X Developer Portal, create the App inside that Project, then regenerate all four keys/tokens from that Project App.',
                     'Confirm the four X fields are from the same app and the same posting account.',
-                    'Confirm your X developer tier allows creating posts through POST /2/tweets.',
+                    'If the error includes client-not-enrolled or Appropriate Level of API Access, open Products > X API v2 and activate Pay Per Use or a paid tier that includes POST /2/tweets.',
                     'If the error mentions DeepSeek, check the DeepSeek API key, account balance, and model name.',
                     'Try the manual Publish to X now button on the post editor to reproduce the error immediately.',
                 ],
@@ -715,7 +715,7 @@ final class SWTX_Sync_WordPress_To_X {
             'x_developer_link' => 'X Developer Portal',
             'x_start_steps' => [
                 '用准备发帖的 X 账号登录。',
-                '申请或启用开发者权限。如果你的账号可选择 Free / 免费层，选择免费层即可。',
+                '为这个 Project 启用 X API 访问权限。X 现在显示旧 Free / 免费层已经 deprecated，通常需要 Pay Per Use 或包含 POST /2/tweets 的付费层级。',
                 '创建一个 Project 和 App。名称可以用你的博客名，方便以后识别。',
                 '进入 App 设置，把权限改成 Read and write，这样插件才有权限发帖。',
             ],
@@ -753,7 +753,7 @@ final class SWTX_Sync_WordPress_To_X {
                 '如果 X 返回权限错误，把 X App 权限改成 Read and write，然后重新生成 Access Token 和 Access Token Secret。',
                 '如果 X 提示 developer App 必须 attached to a Project，请在 X Developer Portal 创建或打开一个 Project，在这个 Project 下面创建 App，然后从这个 Project App 重新生成并填写四个 key/token。',
                 '确认四个 X 字段都来自同一个 App，并且 Access Token 属于你要发帖的 X 账号。',
-                '确认你的 X 开发者账户层级允许调用 POST /2/tweets 创建帖子。',
+                '如果错误里有 client-not-enrolled 或 Appropriate Level of API Access，请打开 Products > X API v2，启用 Pay Per Use 或包含 POST /2/tweets 的付费层级。',
                 '如果错误提到 DeepSeek，请检查 DeepSeek API Key、账户余额和模型名称。',
                 '可以在文章编辑页点击 Publish to X now 手动重试，这样能立即复现并看到错误。',
             ],

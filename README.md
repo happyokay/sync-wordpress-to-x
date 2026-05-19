@@ -70,6 +70,8 @@ The X app must belong to a Project and have write/post permissions.
 
 If posting fails, open the WordPress post editor and check the **Sync WordPress to X** sidebar box. It shows the last error returned by DeepSeek or X. Common causes are missing auto-posting, a post that was already published before auto-posting was enabled, an X app that is not attached to a Project, X app permissions that are not set to read and write, access tokens generated before the permission change, mixed credentials from different X apps, or a DeepSeek key/model/billing issue.
 
+If X returns `client-not-enrolled` or `Appropriate Level of API Access`, open **Products > X API v2** in the X Developer Portal. X now shows the old Free plan as deprecated, so the Project needs Pay Per Use or a paid tier that includes `POST /2/tweets`.
+
 ## DeepSeek notes
 
 The default model is `deepseek-v4-flash`, matching DeepSeek's current quick-start documentation. You can change the model on the settings page.

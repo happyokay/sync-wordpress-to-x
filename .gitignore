@@ -3,3 +3,4 @@ vendor/
 node_modules/
 *.log
 *.zip
+!dist/sync-wordpress-to-x.zip

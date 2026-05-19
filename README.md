@@ -32,6 +32,17 @@ The plugin uses:
 
 ## Installation
 
+### WordPress admin upload
+
+1. Download `sync-wordpress-to-x.zip`.
+2. In WordPress, open **Plugins > Add New Plugin > Upload Plugin**.
+3. Upload the zip file and activate **Sync WordPress to X**.
+4. Open **Settings > Sync WordPress to X**.
+5. Add your X API key, X API key secret, X access token, X access token secret, and DeepSeek API key.
+6. Enable auto-posting.
+
+### Manual install
+
 1. Copy this folder to `wp-content/plugins/sync-wordpress-to-x`.
 2. Activate **Sync WordPress to X** in WordPress.
 3. Open **Settings > Sync WordPress to X**.

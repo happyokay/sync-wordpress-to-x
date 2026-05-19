@@ -66,9 +66,9 @@ This plugin signs X requests with OAuth 1.0a user context. In your X developer p
 - Access token
 - Access token secret
 
-The X app must have write/post permissions.
+The X app must belong to a Project and have write/post permissions.
 
-If posting fails, open the WordPress post editor and check the **Sync WordPress to X** sidebar box. It shows the last error returned by DeepSeek or X. Common causes are missing auto-posting, a post that was already published before auto-posting was enabled, X app permissions that are not set to read and write, access tokens generated before the permission change, mixed credentials from different X apps, or a DeepSeek key/model/billing issue.
+If posting fails, open the WordPress post editor and check the **Sync WordPress to X** sidebar box. It shows the last error returned by DeepSeek or X. Common causes are missing auto-posting, a post that was already published before auto-posting was enabled, an X app that is not attached to a Project, X app permissions that are not set to read and write, access tokens generated before the permission change, mixed credentials from different X apps, or a DeepSeek key/model/billing issue.
 
 ## DeepSeek notes
 

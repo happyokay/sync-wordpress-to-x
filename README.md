@@ -17,6 +17,7 @@ Post permalink
 - Trims the final text to one X post.
 - Publishes the text through the X API.
 - Saves the X post id and last error in post meta so duplicate publishes are avoided.
+- Provides Chinese and English settings page copy, including beginner-friendly X API credential instructions.
 
 ## Requirements
 

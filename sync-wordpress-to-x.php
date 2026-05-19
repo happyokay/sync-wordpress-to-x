@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Sync WordPress to X
  * Description: Publishes newly published WordPress posts to X with a DeepSeek-generated summary.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Author: Open Source Contributors
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -56,6 +56,7 @@ final class SWTX_Sync_WordPress_To_X {
 
         return [
             'enabled' => empty($input['enabled']) ? '0' : '1',
+            'language' => in_array(($input['language'] ?? 'zh_CN'), ['zh_CN', 'en_US'], true) ? $input['language'] : 'zh_CN',
             'post_type' => sanitize_key($input['post_type'] ?? 'post'),
             'x_api_key' => sanitize_text_field($input['x_api_key'] ?? ''),
             'x_api_secret' => self::preserve_secret($input, $current, 'x_api_secret'),
@@ -73,27 +74,40 @@ final class SWTX_Sync_WordPress_To_X {
 
         $settings = self::get_settings();
         $post_types = get_post_types(['public' => true], 'objects');
+        $language = self::settings_language($settings);
+        $copy = self::settings_copy($language);
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Sync WordPress to X', 'sync-wordpress-to-x'); ?></h1>
-            <p><?php esc_html_e('When a new post is published, this plugin asks DeepSeek for a short summary and publishes three lines to X: title, summary, and permalink.', 'sync-wordpress-to-x'); ?></p>
+            <h1><?php echo esc_html($copy['title']); ?></h1>
+            <p><?php echo esc_html($copy['intro']); ?></p>
 
             <form method="post" action="options.php">
                 <?php settings_fields('swtx_settings_group'); ?>
 
                 <table class="form-table" role="presentation">
                     <tr>
-                        <th scope="row"><?php esc_html_e('Enable auto-posting', 'sync-wordpress-to-x'); ?></th>
+                        <th scope="row"><label for="swtx_language"><?php echo esc_html($copy['language_label']); ?></label></th>
+                        <td>
+                            <select id="swtx_language" name="<?php echo esc_attr(self::OPTION_NAME); ?>[language]">
+                                <option value="zh_CN" <?php selected($language, 'zh_CN'); ?>>中文</option>
+                                <option value="en_US" <?php selected($language, 'en_US'); ?>>English</option>
+                            </select>
+                            <p class="description"><?php echo esc_html($copy['language_help']); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><?php echo esc_html($copy['enabled_label']); ?></th>
                         <td>
                             <label>
                                 <input type="checkbox" name="<?php echo esc_attr(self::OPTION_NAME); ?>[enabled]" value="1" <?php checked($settings['enabled'], '1'); ?>>
-                                <?php esc_html_e('Publish new WordPress posts to X automatically', 'sync-wordpress-to-x'); ?>
+                                <?php echo esc_html($copy['enabled_help']); ?>
                             </label>
                         </td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><label for="swtx_post_type"><?php esc_html_e('Post type', 'sync-wordpress-to-x'); ?></label></th>
+                        <th scope="row"><label for="swtx_post_type"><?php echo esc_html($copy['post_type_label']); ?></label></th>
                         <td>
                             <select id="swtx_post_type" name="<?php echo esc_attr(self::OPTION_NAME); ?>[post_type]">
                                 <?php foreach ($post_types as $post_type) : ?>
@@ -106,38 +120,82 @@ final class SWTX_Sync_WordPress_To_X {
                     </tr>
 
                     <tr>
-                        <th scope="row"><label for="swtx_x_api_key"><?php esc_html_e('X API key', 'sync-wordpress-to-x'); ?></label></th>
-                        <td><input class="regular-text" id="swtx_x_api_key" name="<?php echo esc_attr(self::OPTION_NAME); ?>[x_api_key]" type="text" value="<?php echo esc_attr($settings['x_api_key']); ?>"></td>
-                    </tr>
-
-                    <tr>
-                        <th scope="row"><label for="swtx_x_api_secret"><?php esc_html_e('X API key secret', 'sync-wordpress-to-x'); ?></label></th>
+                        <th scope="row"><?php echo esc_html($copy['x_start_label']); ?></th>
                         <td>
-                            <input class="regular-text" id="swtx_x_api_secret" name="<?php echo esc_attr(self::OPTION_NAME); ?>[x_api_secret]" type="password" value="<?php echo esc_attr($settings['x_api_secret']); ?>" autocomplete="off">
-                            <p class="description"><?php esc_html_e('OAuth 1.0a user context is used for posting.', 'sync-wordpress-to-x'); ?></p>
+                            <p>
+                                <?php echo esc_html($copy['x_start_intro']); ?>
+                                <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer"><?php echo esc_html($copy['x_developer_link']); ?></a>
+                            </p>
+                            <ol>
+                                <?php foreach ($copy['x_start_steps'] as $step) : ?>
+                                    <li><?php echo esc_html($step); ?></li>
+                                <?php endforeach; ?>
+                            </ol>
+                            <p class="description"><?php echo esc_html($copy['x_start_note']); ?></p>
                         </td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><label for="swtx_x_access_token"><?php esc_html_e('X access token', 'sync-wordpress-to-x'); ?></label></th>
+                        <th scope="row"><?php echo esc_html($copy['x_app_keys_label']); ?></th>
+                        <td>
+                            <p><?php echo esc_html($copy['x_app_keys_intro']); ?></p>
+                            <ol>
+                                <?php foreach ($copy['x_app_keys_steps'] as $step) : ?>
+                                    <li><?php echo esc_html($step); ?></li>
+                                <?php endforeach; ?>
+                            </ol>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><label for="swtx_x_api_key"><?php echo esc_html($copy['x_api_key_label']); ?></label></th>
+                        <td><input class="regular-text" id="swtx_x_api_key" name="<?php echo esc_attr(self::OPTION_NAME); ?>[x_api_key]" type="text" value="<?php echo esc_attr($settings['x_api_key']); ?>"></td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><label for="swtx_x_api_secret"><?php echo esc_html($copy['x_api_secret_label']); ?></label></th>
+                        <td>
+                            <input class="regular-text" id="swtx_x_api_secret" name="<?php echo esc_attr(self::OPTION_NAME); ?>[x_api_secret]" type="password" value="<?php echo esc_attr($settings['x_api_secret']); ?>" autocomplete="off">
+                            <p class="description"><?php echo esc_html($copy['oauth_note']); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><?php echo esc_html($copy['x_user_tokens_label']); ?></th>
+                        <td>
+                            <p><?php echo esc_html($copy['x_user_tokens_intro']); ?></p>
+                            <ol>
+                                <?php foreach ($copy['x_user_tokens_steps'] as $step) : ?>
+                                    <li><?php echo esc_html($step); ?></li>
+                                <?php endforeach; ?>
+                            </ol>
+                            <p class="description"><?php echo esc_html($copy['x_user_tokens_note']); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><label for="swtx_x_access_token"><?php echo esc_html($copy['x_access_token_label']); ?></label></th>
                         <td><input class="regular-text" id="swtx_x_access_token" name="<?php echo esc_attr(self::OPTION_NAME); ?>[x_access_token]" type="text" value="<?php echo esc_attr($settings['x_access_token']); ?>"></td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><label for="swtx_x_access_token_secret"><?php esc_html_e('X access token secret', 'sync-wordpress-to-x'); ?></label></th>
+                        <th scope="row"><label for="swtx_x_access_token_secret"><?php echo esc_html($copy['x_access_token_secret_label']); ?></label></th>
                         <td><input class="regular-text" id="swtx_x_access_token_secret" name="<?php echo esc_attr(self::OPTION_NAME); ?>[x_access_token_secret]" type="password" value="<?php echo esc_attr($settings['x_access_token_secret']); ?>" autocomplete="off"></td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><label for="swtx_deepseek_api_key"><?php esc_html_e('DeepSeek API key', 'sync-wordpress-to-x'); ?></label></th>
-                        <td><input class="regular-text" id="swtx_deepseek_api_key" name="<?php echo esc_attr(self::OPTION_NAME); ?>[deepseek_api_key]" type="password" value="<?php echo esc_attr($settings['deepseek_api_key']); ?>" autocomplete="off"></td>
+                        <th scope="row"><label for="swtx_deepseek_api_key"><?php echo esc_html($copy['deepseek_api_key_label']); ?></label></th>
+                        <td>
+                            <input class="regular-text" id="swtx_deepseek_api_key" name="<?php echo esc_attr(self::OPTION_NAME); ?>[deepseek_api_key]" type="password" value="<?php echo esc_attr($settings['deepseek_api_key']); ?>" autocomplete="off">
+                            <p class="description"><?php echo esc_html($copy['deepseek_help']); ?> <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">https://platform.deepseek.com/api_keys</a></p>
+                        </td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><label for="swtx_deepseek_model"><?php esc_html_e('DeepSeek model', 'sync-wordpress-to-x'); ?></label></th>
+                        <th scope="row"><label for="swtx_deepseek_model"><?php echo esc_html($copy['deepseek_model_label']); ?></label></th>
                         <td>
                             <input class="regular-text" id="swtx_deepseek_model" name="<?php echo esc_attr(self::OPTION_NAME); ?>[deepseek_model]" type="text" value="<?php echo esc_attr($settings['deepseek_model']); ?>">
-                            <p class="description"><?php esc_html_e('Default: deepseek-v4-flash.', 'sync-wordpress-to-x'); ?></p>
+                            <p class="description"><?php echo esc_html($copy['deepseek_model_help']); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -339,6 +397,106 @@ final class SWTX_Sync_WordPress_To_X {
         return sanitize_text_field($value);
     }
 
+    private static function settings_language(array $settings): string {
+        return in_array(($settings['language'] ?? 'zh_CN'), ['zh_CN', 'en_US'], true) ? $settings['language'] : 'zh_CN';
+    }
+
+    private static function settings_copy(string $language): array {
+        if ($language === 'en_US') {
+            return [
+                'title' => 'Sync WordPress to X',
+                'intro' => 'When a new post is published, this plugin asks DeepSeek for a short summary and publishes three lines to X: title, summary, and permalink.',
+                'language_label' => 'Settings language',
+                'language_help' => 'This only changes the plugin settings page.',
+                'enabled_label' => 'Enable auto-posting',
+                'enabled_help' => 'Publish new WordPress posts to X automatically',
+                'post_type_label' => 'Post type',
+                'x_start_label' => 'Get started with X Developer',
+                'x_start_intro' => 'Open the X Developer Portal here:',
+                'x_developer_link' => 'X Developer Portal',
+                'x_start_steps' => [
+                    'Sign in with the X account that will publish posts.',
+                    'Apply for or activate developer access. Choose the free tier if it is available for your account and usage.',
+                    'Create a project and app. Give it a simple name, such as your blog name.',
+                    'In the app settings, enable read and write permissions so the app is allowed to create posts.',
+                ],
+                'x_start_note' => 'X changes its developer screens occasionally. The names may vary slightly, but you need one app with write/post permission.',
+                'x_app_keys_label' => 'Where to find API Key and API Key Secret',
+                'x_app_keys_intro' => 'These two values identify your X developer app.',
+                'x_app_keys_steps' => [
+                    'In the X Developer Portal, open your project, then open your app.',
+                    'Go to Keys and tokens.',
+                    'Under Consumer Keys or API Key and Secret, copy API Key into the first field below.',
+                    'Copy API Key Secret into the second field below. If it is hidden, regenerate or reveal it from the portal.',
+                ],
+                'x_api_key_label' => 'X API Key',
+                'x_api_secret_label' => 'X API Key Secret',
+                'oauth_note' => 'This plugin uses OAuth 1.0a user context for posting.',
+                'x_user_tokens_label' => 'Where to find Access Token and Access Token Secret',
+                'x_user_tokens_intro' => 'These two values authorize the X account that will publish the post.',
+                'x_user_tokens_steps' => [
+                    'In the same app, stay on Keys and tokens.',
+                    'Find Access Token and Secret or Authentication Tokens.',
+                    'Generate tokens for your own account. If X asks for permissions, choose read and write.',
+                    'Copy Access Token into the third field and Access Token Secret into the fourth field.',
+                ],
+                'x_user_tokens_note' => 'If posting fails with a permission error, regenerate the access token after changing the app permission to read and write.',
+                'x_access_token_label' => 'X Access Token',
+                'x_access_token_secret_label' => 'X Access Token Secret',
+                'deepseek_api_key_label' => 'DeepSeek API Key',
+                'deepseek_help' => 'Create or copy your DeepSeek API key here:',
+                'deepseek_model_label' => 'DeepSeek Model',
+                'deepseek_model_help' => 'Default: deepseek-v4-flash.',
+            ];
+        }
+
+        return [
+            'title' => '同步 WordPress 到 X',
+            'intro' => '当新文章发布时，插件会调用 DeepSeek 生成短摘要，并按三行格式发布到 X：标题、摘要、文章链接。',
+            'language_label' => '设置页面语言',
+            'language_help' => '这里只影响插件设置页的显示语言。',
+            'enabled_label' => '启用自动发布',
+            'enabled_help' => '新 WordPress 文章发布后，自动发布到 X',
+            'post_type_label' => '文章类型',
+            'x_start_label' => '开始配置 X 开发者账号',
+            'x_start_intro' => '先打开 X 开发者后台：',
+            'x_developer_link' => 'X Developer Portal',
+            'x_start_steps' => [
+                '用准备发帖的 X 账号登录。',
+                '申请或启用开发者权限。如果你的账号可选择 Free / 免费层，选择免费层即可。',
+                '创建一个 Project 和 App。名称可以用你的博客名，方便以后识别。',
+                '进入 App 设置，把权限改成 Read and write，这样插件才有权限发帖。',
+            ],
+            'x_start_note' => 'X 的后台页面偶尔会调整名称，但目标是不变的：创建一个有写入/发帖权限的 App。',
+            'x_app_keys_label' => '如何获取 API Key 和 API Key Secret',
+            'x_app_keys_intro' => '这两个值用来识别你的 X 开发者 App。',
+            'x_app_keys_steps' => [
+                '在 X Developer Portal 里打开你的 Project，再打开里面的 App。',
+                '进入 Keys and tokens 页面。',
+                '在 Consumer Keys 或 API Key and Secret 区域，把 API Key 复制到下面第一个输入框。',
+                '把 API Key Secret 复制到下面第二个输入框。如果后台隐藏了它，可以在该页面重新生成或查看。',
+            ],
+            'x_api_key_label' => 'X API Key',
+            'x_api_secret_label' => 'X API Key Secret',
+            'oauth_note' => '插件使用 OAuth 1.0a 用户授权方式发帖。',
+            'x_user_tokens_label' => '如何获取 Access Token 和 Access Token Secret',
+            'x_user_tokens_intro' => '这两个值用来授权具体哪个 X 账号来发帖。',
+            'x_user_tokens_steps' => [
+                '仍然在同一个 App 的 Keys and tokens 页面。',
+                '找到 Access Token and Secret 或 Authentication Tokens 区域。',
+                '为当前账号生成 Access Token。生成时如果要求选择权限，请选择 Read and write。',
+                '把 Access Token 复制到下面第三个输入框，把 Access Token Secret 复制到第四个输入框。',
+            ],
+            'x_user_tokens_note' => '如果发帖时报权限错误，通常是先生成了 token 后才修改 App 权限；把权限改成 Read and write 后重新生成 Access Token 即可。',
+            'x_access_token_label' => 'X Access Token',
+            'x_access_token_secret_label' => 'X Access Token Secret',
+            'deepseek_api_key_label' => 'DeepSeek API Key',
+            'deepseek_help' => '在这里创建或复制你的 DeepSeek API Key：',
+            'deepseek_model_label' => 'DeepSeek 模型',
+            'deepseek_model_help' => '默认值：deepseek-v4-flash。',
+        ];
+    }
+
     private static function sanitize_line(string $value): string {
         $value = wp_strip_all_tags($value);
         $value = html_entity_decode($value, ENT_QUOTES, get_bloginfo('charset'));
@@ -375,6 +533,7 @@ final class SWTX_Sync_WordPress_To_X {
     private static function default_settings(): array {
         return [
             'enabled' => '0',
+            'language' => 'zh_CN',
             'post_type' => 'post',
             'x_api_key' => '',
             'x_api_secret' => '',
